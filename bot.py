@@ -11,17 +11,17 @@ bot = telebot.TeleBot(TOKEN)
 def notify_start():
     for chat_id in GROUP_IDS:
         try:
-            bot.send_message(chat_id, "🤖 Bot ishga tushdi! Muloqot 19:25–19:30 gacha yopiladi.")
+            bot.send_message(chat_id, "🤖 Raqamlashtirish guruhi rasmiy Boti ishga tushdi! Muloqot 18:30 dan 08:00 gacha yopiladi.")
         except:
             pass
 
 # Расписание
-schedule.every().day.at("14:25").do(lambda: close_chat(bot))
-schedule.every().day.at("14:30").do(lambda: open_chat(bot))
+schedule.every().day.at("13:30").do(lambda: close_chat(bot))
+schedule.every().day.at("03:00").do(lambda: open_chat(bot))
 
 notify_start()
 
-print("Бот запущен...")
+print("Bot ishga tushdi...")
 
 while True:
     schedule.run_pending()
