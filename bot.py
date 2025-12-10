@@ -1,63 +1,64 @@
 import telebot
 from telebot import types
 
-from config import TOKEN, GROUP_IDS
+from config import TOKEN, OWNER_ID, GROUP_IDS
 from scheduler import close_chat, open_chat
 
 bot = telebot.TeleBot(TOKEN)
 
-# 🔐 Только твой ID — остальные админом быть не могут
-ADMIN_ID = 67763298
 
+# --- Команда /start ---
+@bot.message_handler(commands=["start"])
+def start(message):
+    if message.from_user.id != OWNER_ID:
+        return bot.reply_to(message, "⛔ Sizda ruxsat yo'q.")
 
-# ----------------------------------------------------------
-# 🔥 Автоматическое удаление чужих ботов + уведомление
-# ----------------------------------------------------------
-@bot.chat_member_handler()
-def check_new_member(update):
-    new_user = update.new_chat_member.user
-
-    # Если это бот И он не наш собственный бот → удалить
-    if new_user.is_bot and new_user.id != bot.get_me().id:
-        try:
-            for gid in GROUP_IDS:
-                bot.ban_chat_member(gid, new_user.id)
-                bot.send_message(gid, "❌ Guruhga qo‘shilgan begona bot o‘chirildi.")
-            print(f"❌ Uchinchi bot o‘chirildi: {new_user.id}")
-        except Exception as e:
-            print("Xato:", e)
-
-
-# ----------------------------------------------------------
-# 🔧 ADMIN PANEL (только для тебя)
-# ----------------------------------------------------------
-@bot.message_handler(commands=['admin'])
-def admin_panel(message):
-    if message.from_user.id != ADMIN_ID:
-        return bot.reply_to(message, "⛔ Sizda ruxsat yo’q!")
-
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     btn1 = types.KeyboardButton("🔒 Chatni yopish")
     btn2 = types.KeyboardButton("🔓 Chatni ochish")
-    keyboard.add(btn1, btn2)
+    markup.add(btn1, btn2)
 
-    bot.send_message(message.chat.id, "🔧 Admin panel:", reply_markup=keyboard)
+    bot.send_message(
+        message.chat.id,
+        "🤖 Boshqaruv paneli:",
+        reply_markup=markup
+    )
 
 
-@bot.message_handler(func=lambda m: True)
-def admin_actions(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-
+# --- Обработка кнопок ---
+@bot.message_handler(func=lambda msg: msg.from_user.id == OWNER_ID)
+def handle_buttons(message):
     if message.text == "🔒 Chatni yopish":
-        close_chat(bot)
-        bot.send_message(message.chat.id, "🔒 Chat yopildi!")
+        for chat_id in GROUP_IDS:
+            close_chat(bot, chat_id)
+        bot.send_message(message.chat.id, "🔒 Guruhlar yopildi.")
 
     elif message.text == "🔓 Chatni ochish":
-        open_chat(bot)
-        bot.send_message(message.chat.id, "🔓 Chat ochildi!")
+        for chat_id in GROUP_IDS:
+            open_chat(bot, chat_id)
+        bot.send_message(message.chat.id, "🔓 Guruhlar ochildi.")
 
 
-print("Бот запущен...")
+# --- Реакция на изменения членов чата ---
+@bot.chat_member_handler()
+def watch_members(update):
+    chat_id = update.chat.id
+    new_member = update.new_chat_member
 
-bot.polling(none_stop=True)
+    # Если добавили НАШЕГО бота
+    if new_member.user.id == bot.get_me().id:
+        bot.send_message(chat_id, "📢 Raqamlashtirish guruhi rasmiy boti ishga tushdi.")
+        return
+
+    # Удаление чужих ботов
+    if new_member.is_bot and new_member.user.id != bot.get_me().id:
+        try:
+            bot.ban_chat_member(chat_id, new_member.user.id)
+            bot.send_message(chat_id, "❌ Guruhga qo'shilgan begona bot o'chirildi.")
+        except:
+            pass
+
+
+print("🤖 Bot ishga tushdi...")
+
+bot.infinity_polling()
