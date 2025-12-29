@@ -5,6 +5,14 @@ from telebot.types import ChatPermissions
 from config import TOKEN, OWNER_ID, GROUP_IDS
 
 bot = telebot.TeleBot(TOKEN)
+print("=== Проверка групп ===")
+for gid in GROUP_IDS:
+    try:
+        chat = bot.get_chat(gid)
+        print(f"OK: {gid} | type={chat.type} | title={chat.title}")
+    except Exception as e:
+        print(f"FAIL: {gid} -> {e}")
+print("=== Конец проверки ===")
 
 # Храним состояние чатов (закрыт/открыт)
 chat_closed = {gid: False for gid in GROUP_IDS}
