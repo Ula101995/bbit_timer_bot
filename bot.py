@@ -13,6 +13,7 @@ for gid in GROUP_IDS:
     except Exception as e:
         print(f"FAIL: {gid} -> {e}")
 print("=== Конец проверки ===")
+#bot.infinity_polling()
 
 # Храним состояние чатов (закрыт/открыт)
 chat_closed = {gid: False for gid in GROUP_IDS}
