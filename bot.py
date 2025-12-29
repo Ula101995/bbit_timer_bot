@@ -1,5 +1,3 @@
-from permissions import set_permissions_with_retry
-from telebot.types import ChatPermissions
 import telebot
 from telebot import types
 from telebot.types import ChatPermissions
