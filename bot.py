@@ -6,37 +6,53 @@ from config import TOKEN, OWNER_ID, GROUP_IDS
 
 bot = telebot.TeleBot(TOKEN)
 
+# Храним состояние чатов (закрыт/открыт)
+chat_closed = {gid: False for gid in GROUP_IDS}
 
-def close_chat(chat_id):
-    bot.set_chat_permissions(
-        chat_id,
-        ChatPermissions(
-            can_send_messages=False,
-            can_send_media_messages=False,
-            can_send_polls=False,
-            can_send_other_messages=False,
-            can_add_web_page_previews=False,
-            can_change_info=False,
-            can_invite_users=False,
-            can_pin_messages=False
+
+def mute_user(chat_id, user_id):
+    try:
+        bot.restrict_chat_member(
+            chat_id,
+            user_id,
+            ChatPermissions(can_send_messages=False)
         )
-    )
+    except:
+        pass
 
 
-def open_chat(chat_id):
-    bot.set_chat_permissions(
-        chat_id,
-        ChatPermissions(
-            can_send_messages=True,
-            can_send_media_messages=True,
-            can_send_polls=True,
-            can_send_other_messages=True,
-            can_add_web_page_previews=True,
-            can_change_info=False,
-            can_invite_users=True,
-            can_pin_messages=False
+def unmute_user(chat_id, user_id):
+    try:
+        bot.restrict_chat_member(
+            chat_id,
+            user_id,
+            ChatPermissions(can_send_messages=True)
         )
-    )
+    except:
+        pass
+
+
+def mute_all(chat_id):
+    admins = {a.user.id for a in bot.get_chat_administrators(chat_id)}
+    # Мьютим тех, кто писал недавно (ограничение Telegram API)
+    try:
+        for msg in bot.get_chat_history(chat_id, limit=200):
+            if msg.from_user and msg.from_user.id not in admins:
+                mute_user(chat_id, msg.from_user.id)
+    except:
+        pass
+    chat_closed[chat_id] = True
+
+
+def unmute_all(chat_id):
+    admins = {a.user.id for a in bot.get_chat_administrators(chat_id)}
+    try:
+        for msg in bot.get_chat_history(chat_id, limit=200):
+            if msg.from_user and msg.from_user.id not in admins:
+                unmute_user(chat_id, msg.from_user.id)
+    except:
+        pass
+    chat_closed[chat_id] = False
 
 
 @bot.message_handler(commands=["start"])
@@ -54,23 +70,29 @@ def start(message):
 def handle_buttons(message):
     if message.text == "🔒 Chatni yopish":
         for gid in GROUP_IDS:
-            close_chat(gid)
-        bot.send_message(message.chat.id, "🔒 Barcha guruhlar yopildi.")
+            mute_all(gid)
+        bot.send_message(message.chat.id, "🔒 Barcha guruhlar yopildi (mute).")
 
     elif message.text == "🔓 Chatni ochish":
         for gid in GROUP_IDS:
-            open_chat(gid)
+            unmute_all(gid)
         bot.send_message(message.chat.id, "🔓 Barcha guruhlar ochildi.")
 
 
 @bot.chat_member_handler()
-def on_bot_added(update):
-    if update.new_chat_member.user.id == bot.get_me().id:
-        bot.send_message(
-            update.chat.id,
-            "📢 Raqamlashtirish guruhi rasmiy boti ishga tushdi."
-        )
+def on_new_member(update):
+    chat_id = update.chat.id
+    user = update.new_chat_member.user
+
+    # Уведомление при добавлении бота
+    if user.id == bot.get_me().id:
+        bot.send_message(chat_id, "📢 Raqamlashtirish guruhi rasmiy boti ishga tushdi.")
+        return
+
+    # Если чат закрыт — мутим новых
+    if chat_closed.get(chat_id):
+        mute_user(chat_id, user.id)
 
 
-print("🤖 Bot ishga tushdi...")
+print("🤖 Bot ishga tushdi (MUTE MODE)...")
 bot.infinity_polling()
